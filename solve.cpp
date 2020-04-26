@@ -8,12 +8,18 @@
 #include<iostream>
 #include<climits>
 #include<sstream>
+
+#include<stack>
+#include<algorithm>
+#include<map>
 using namespace std;
 
 path solve_dfs(Maze& m, int rows, int cols);
 path solve_bfs(Maze& m, int rows, int cols);
 path solve_dijkstra(Maze& m, int rows, int cols);
 path solve_tour(Maze& m, int rows, int cols);
+
+bool have_visited(const point& pos, const int dir, const vector<point>& visited);
 
 
 int main(int argc, char** argv)
@@ -109,12 +115,89 @@ int main(int argc, char** argv)
 
 path solve_dfs(Maze& m, int rows, int cols)
 {
-    return list<point>();
+  point pos(0, 0);
+  int dir;
+  vector<point> visited;
+  stack<point> cur_path;
+
+  cur_path.push(pos);
+  visited.push_back(pos);
+
+  cout << "Entering maze";
+  // keep running until the current position is at the end of the maze
+  while(pos.first != (rows - 1) || pos.second != (cols - 1)) {
+    // check if we can move to the next position and assign direction 
+    if(m.can_go_down(pos.first, pos.second) && !have_visited(pos, DOWN, visited)) {
+      dir = DOWN;
+    } else if(m.can_go_left(pos.first, pos.second) && !have_visited(pos, LEFT, visited)) {
+      dir = LEFT;
+    } else if(m.can_go_up(pos.first, pos.second) && !have_visited(pos, UP, visited)) {
+      dir = UP;
+    } else if(m.can_go_right(pos.first, pos.second) && !have_visited(pos, RIGHT, visited)) {
+      dir = RIGHT;
+    } else {
+      dir = FAIL;
+    }
+    // If we can't move, go back, otherwise move in assigned direction
+    if(dir == FAIL) {
+      cur_path.pop();
+      pos = cur_path.top();
+    } else {
+      pos = pos + moveIn(dir);    
+      cur_path.push(pos);
+      visited.push_back(pos);
+    }
+  }
+
+  // Copy the stack into a list
+  path points;
+  while(!cur_path.empty()) {
+    points.push_front(cur_path.top());
+    cur_path.pop();
+  }
+
+  return points;
 }
+
+
 
 path solve_bfs(Maze& m, int rows, int cols)
 {
-    return list<point>();
+  point current(0, 0);
+
+  vector<point> visited;
+  queue<point> q;
+  map<point, point> parent;
+
+  q.push(current);
+  visited.push_back(current);
+
+  int step_count = 0;
+  while(!q.empty()) {
+    current = q.front();
+    q.pop();
+    
+    // Add neighbors to queue if valid, mark as visited, and add to parent tree
+    for (int dir = 0; dir < 4; ++dir) {
+      if(m.can_go(dir, current.first, current.second) && !have_visited(current, dir, visited)) {
+        q.push(current + moveIn(dir));
+        visited.push_back(current + moveIn(dir));
+        parent[current + moveIn(dir)] = current;
+      }
+    }
+  }
+  
+  path points;
+
+  // Iterate back through each parent, starting at the end node
+  // then reverse the vector so that it is in the right order
+  for(point cur = point(rows-1, cols-1); cur != point(0, 0); cur = parent[cur]) {
+    points.push_back(cur);
+  }
+  points.push_back(point(0, 0));
+  reverse(points.begin(), points.end());
+
+  return points;
 }
 
 path solve_dijkstra(Maze& m, int rows, int cols)
@@ -125,4 +208,14 @@ path solve_dijkstra(Maze& m, int rows, int cols)
 path solve_tour(Maze& m, int rows, int cols)
 {
     return list<point>();
+}
+
+bool have_visited(const point& pos, const int dir, const vector<point>& visited)
+{
+  // Find if a position has been visited using std::find looking for the
+  // position in the given direction
+  if(find(visited.begin(), visited.end(), pos + moveIn(dir)) != visited.end())
+    return true;
+  else
+    return false;
 }
