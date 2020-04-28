@@ -113,6 +113,16 @@ int main(int argc, char** argv)
     }
 }
 
+bool have_visited(const point& pos, const int dir, const vector<point>& visited)
+{
+  // Find if a position has been visited using std::find looking for the
+  // position in the given direction
+  if(find(visited.begin(), visited.end(), pos + moveIn(dir)) != visited.end())
+    return true;
+  else
+    return false;
+}
+
 path solve_dfs(Maze& m, int rows, int cols)
 {
   point pos(0, 0);
@@ -163,26 +173,30 @@ path solve_dfs(Maze& m, int rows, int cols)
 
 path solve_bfs(Maze& m, int rows, int cols)
 {
-  point current(0, 0);
-
   vector<point> visited;
   queue<point> q;
   map<point, point> parent;
 
+  point current(0, 0);
+
   q.push(current);
   visited.push_back(current);
 
-  int step_count = 0;
-  while(!q.empty()) {
+  bool end = false;
+  while(!q.empty() && !end) {
     current = q.front();
     q.pop();
     
     // Add neighbors to queue if valid, mark as visited, and add to parent tree
     for (int dir = 0; dir < 4; ++dir) {
       if(m.can_go(dir, current.first, current.second) && !have_visited(current, dir, visited)) {
-        q.push(current + moveIn(dir));
-        visited.push_back(current + moveIn(dir));
-        parent[current + moveIn(dir)] = current;
+        point neighbor = current + moveIn(dir);
+        q.push(neighbor);
+        visited.push_back(neighbor);
+        parent[neighbor] = current;
+
+        if(neighbor == point(rows-1, cols-1))
+          end = true;
       }
     }
   }
@@ -200,9 +214,61 @@ path solve_bfs(Maze& m, int rows, int cols)
   return points;
 }
 
+struct Cell {
+  point p;
+  int cost;
+
+  Cell(point p, int cost) : p(p), cost(cost) {}
+};
+
+struct CompareCost  {
+  bool operator()(Cell const& p1, Cell const& p2)
+  {
+    return p1.cost > p2.cost;
+  }
+};
+
 path solve_dijkstra(Maze& m, int rows, int cols)
 {
-    return list<point>();
+  vector<point> visited;
+  priority_queue<Cell, vector<Cell>, CompareCost> q;
+  map<point ,point> parent;
+
+  point current(0, 0);
+
+  q.push(Cell(current, 0));
+  visited.push_back(current);
+
+  bool end = false;
+  while(!q.empty() && !end) {
+    current = q.top().p;
+    q.pop();
+
+    // Add neighbors to queue if valid, mark as visited, and add to parent tree
+    for (int dir = 0; dir < 4; ++dir) {
+      if(m.can_go(dir, current.first, current.second) && !have_visited(current, dir, visited)) {
+        point neighbor = current + moveIn(dir);
+        q.push(Cell(neighbor, m.cost(current.first, current.second, dir)));
+        visited.push_back(neighbor);
+        parent[neighbor] = current;
+
+        if (neighbor == point(rows-1, cols-1))
+          end = true;
+      }
+    }
+  }
+
+  path points;
+
+  // Iterate back through each parent, starting at the end node
+  // then reverse the vector so that it is in the right order
+  for(point cur = point(rows-1, cols-1); cur != point(0,0); cur = parent[cur]) {
+    points.push_back(cur);
+  }
+  points.push_back(point(0, 0));
+  reverse(points.begin(), points.end());
+
+  return points;
 }
 
 path solve_tour(Maze& m, int rows, int cols)
@@ -210,12 +276,3 @@ path solve_tour(Maze& m, int rows, int cols)
     return list<point>();
 }
 
-bool have_visited(const point& pos, const int dir, const vector<point>& visited)
-{
-  // Find if a position has been visited using std::find looking for the
-  // position in the given direction
-  if(find(visited.begin(), visited.end(), pos + moveIn(dir)) != visited.end())
-    return true;
-  else
-    return false;
-}
